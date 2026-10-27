@@ -6,6 +6,8 @@
   "author": {
     "name": "auto-browser contributors"
   },
+  "homepage": "https://github.com/mikeweber-re/auto-browser",
+  "repository": "https://github.com/mikeweber-re/auto-browser",
   "keywords": [
     "testing",
     "browser",

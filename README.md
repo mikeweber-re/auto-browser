@@ -44,7 +44,7 @@ own when a task fits ("test this flow", "prove this PR works").
    marketplace:
 
    ```bash
-   git clone <this repo's URL> ~/auto-browser     # or unzip / copy to ~/auto-browser
+   git clone https://github.com/mikeweber-re/auto-browser.git ~/auto-browser     # or unzip / copy to ~/auto-browser
    cd ~/auto-browser
    npm install
    npm run setup:playwright         # optional: Playwright's Chromium, about 150 MB
