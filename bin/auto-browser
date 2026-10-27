@@ -1,0 +1,230 @@
+#!/usr/bin/env bash
+# auto-browser: shared helper for the auto-browser skills.
+#
+#   auto-browser home                  storage root for replays and proof runs
+#   auto-browser kit                   kit install directory
+#   auto-browser lib                   path of the replay helper library (source it)
+#   auto-browser config                project config as JSON, script paths made absolute
+#   auto-browser health                is the app up? exit 0 yes, 1 no (reason on stderr)
+#   auto-browser up                    run the project's start script, if it has one
+#   auto-browser login [email]         print session cookies as JSON [{name,value}]
+#   auto-browser list [key]            list saved replays
+#   auto-browser new <key> <flow> [--playwright]
+#                                    scaffold a replay, print its directory
+#   auto-browser run <replay-dir>      run a replay of either kind
+#   auto-browser proof-dir <key> [--new]
+#                                    print today's pr-proof run directory
+#
+# Exit codes: 0 ok, 1 failure, 2 missing dependency, 3 no project config.
+set -euo pipefail
+
+# Resolve the kit root through any symlinks (no readlink -f: BSD readlink lacks it).
+src=${BASH_SOURCE[0]}
+while [[ -L "$src" ]]; do
+  d=$(cd -P "$(dirname "$src")" && pwd)
+  src=$(readlink "$src")
+  [[ "$src" == /* ]] || src="$d/$src"
+done
+KIT=$(cd -P "$(dirname "$src")/.." && pwd)
+SELF="$KIT/bin/auto-browser"
+
+die() { printf 'auto-browser: %s\n' "$*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null 2>&1 || { printf 'auto-browser: %s is required but not installed\n' "$1" >&2; exit 2; }; }
+
+repo_root() { git rev-parse --show-toplevel 2>/dev/null || true; }
+
+home_dir() {
+  if [[ -n "${AUTO_BROWSER_HOME:-}" ]]; then
+    printf '%s\n' "$AUTO_BROWSER_HOME"
+  elif [[ -n "$(repo_root)" ]]; then
+    printf '%s/.auto-browser\n' "$(repo_root)"
+  else
+    printf '%s/.auto-browser\n' "$HOME"
+  fi
+}
+
+config_file() {
+  if [[ -n "${AUTO_BROWSER_CONFIG:-}" ]]; then
+    printf '%s\n' "$AUTO_BROWSER_CONFIG"
+  elif [[ -n "$(repo_root)" && -f "$(repo_root)/auto-browser.json" ]]; then
+    printf '%s/auto-browser.json\n' "$(repo_root)"
+  fi
+}
+
+# Config with defaults filled in and script paths absolute. BASE_URL overrides baseUrl.
+config_json() {
+  need jq
+  local f dir
+  f=$(config_file)
+  if [[ -z "$f" ]]; then
+    [[ -n "${BASE_URL:-}" ]] || {
+      echo "auto-browser: no auto-browser.json in this repo and no BASE_URL set" >&2
+      echo "  copy $KIT/examples/auto-browser.json to the repo root and fill it in" >&2
+      exit 3
+    }
+    jq -n --arg u "$BASE_URL" '{baseUrl: $u, scripts: {}, login: {roles: {}}, notes: null}'
+    return
+  fi
+  [[ -f "$f" ]] || die "config file not found: $f"
+  dir=$(cd "$(dirname "$f")" && pwd)
+  jq --arg dir "$dir" --arg file "$dir/$(basename "$f")" --arg base "${BASE_URL:-}" '
+    def abs: if . == null or . == "" then null
+             elif startswith("/") then .
+             else $dir + "/" + . end;
+    .baseUrl = (if $base != "" then $base else .baseUrl end)
+    | .scripts = ((.scripts // {}) | with_entries(.value |= abs))
+    | .login = ({roles: {}} + (.login // {}))
+    | .configFile = $file
+  ' "$f"
+}
+
+cfg() { config_json | jq -r "$1 // empty"; }
+
+# Project scripts get the resolved BASE_URL in their environment.
+export_base_url() { BASE_URL=$(cfg '.baseUrl'); export BASE_URL; }
+
+cmd_health() {
+  local script url
+  export_base_url
+  script=$(cfg '.scripts.health')
+  if [[ -n "$script" ]]; then
+    exec "$script"
+  fi
+  url=$(cfg '.baseUrl')
+  [[ -n "$url" ]] || die "no baseUrl in config"
+  need curl
+  curl -s -o /dev/null --max-time 5 "$url" || { echo "app not reachable at $url" >&2; exit 1; }
+}
+
+cmd_up() {
+  local script
+  export_base_url
+  script=$(cfg '.scripts.up')
+  [[ -n "$script" ]] || { echo "no scripts.up in config; start the app the way the project's notes say" >&2; exit 1; }
+  exec "$script"
+}
+
+cmd_login() {
+  local script
+  export_base_url
+  script=$(cfg '.scripts.login')
+  [[ -n "$script" ]] || { echo "no scripts.login in config; see the config notes for how to log in" >&2; exit 1; }
+  exec "$script" "$@" --cookies
+}
+
+cmd_list() {
+  need jq
+  local home key f dir last rows=()
+  home=$(home_dir)
+  key=${1:-*}
+  shopt -s nullglob
+  for f in "$home"/$key/replays/*/replay.json; do
+    dir=$(dirname "$f")
+    last="never run"
+    [[ -f "$dir/last-run/result.json" ]] && last=$(jq -r '"\(.result) \(.at[0:10])"' "$dir/last-run/result.json")
+    rows+=("$(jq -r --arg last "$last" --arg dir "$dir" \
+      '[.key, .flow, .kind, $last, .description, $dir] | @tsv' "$f")")
+  done
+  if (( ${#rows[@]} == 0 )); then
+    echo "no replays found under $home" >&2
+    exit 1
+  fi
+  { printf 'KEY\tFLOW\tKIND\tLAST\tDESCRIPTION\tPATH\n'; printf '%s\n' "${rows[@]}"; } | column -t -s "$(printf '\t')"
+}
+
+cmd_new() {
+  local key=${1:?usage: auto-browser new <key> <flow> [--playwright]}
+  local flow=${2:?usage: auto-browser new <key> <flow> [--playwright]}
+  local kind=agent-browser dir
+  [[ "${3:-}" == "--playwright" ]] && kind=playwright
+  [[ "$key" =~ ^[A-Za-z0-9._-]+$ && "$flow" =~ ^[A-Za-z0-9._-]+$ ]] || die "key and flow may use letters, digits, . _ - only"
+  dir="$(home_dir)/$key/replays/$flow"
+  [[ -e "$dir" ]] && die "already exists: $dir"
+  mkdir -p "$dir"
+  if [[ $kind == playwright ]]; then
+    cp "$KIT/skills/browser-replay/template/flow.spec.ts" "$dir/flow.spec.ts"
+  else
+    cp "$KIT/skills/browser-replay/template/run.sh" "$dir/run.sh"
+  fi
+  jq -n --arg key "$key" --arg flow "$flow" --arg kind "$kind" --arg d "$(date +%F)" '{
+    flow: $flow, key: $key, kind: $kind,
+    description: "", covers: [],
+    created: $d, history: [{date: $d, change: "recorded"}]
+  }' > "$dir/replay.json"
+  printf '%s\n' "$dir"
+}
+
+# The @playwright/test a spec in $1 resolves: the project's own copy if it has one,
+# else the kit's. The runner must use the same copy the spec imports.
+playwright_pkg() {
+  (cd "$1" && NODE_PATH="$KIT/node_modules" node -e '
+    try { console.log(require("path").dirname(require.resolve("@playwright/test/package.json"))) }
+    catch { process.exit(2) }')
+}
+
+cmd_run() {
+  local dir code result pw
+  dir=$(cd "${1:?usage: auto-browser run <replay-dir>}" && pwd)
+  if [[ -f "$dir/run.sh" ]]; then
+    PATH="$KIT/bin:$PATH" AUTO_BROWSER_CLI=$SELF exec bash "$dir/run.sh"
+  fi
+  [[ -f "$dir/flow.spec.ts" ]] || die "no run.sh or flow.spec.ts in $dir"
+  need node
+  need jq
+  pw=$(playwright_pkg "$dir") || {
+    echo "auto-browser: @playwright/test not found. Run: npm install --prefix $KIT" >&2
+    exit 2
+  }
+  export REPLAY_DIR=$dir AUTO_BROWSER_CLI=$SELF
+  export_base_url
+  if [[ -z "${SKIP_HEALTH:-}" ]]; then
+    "$SELF" health
+  fi
+  rm -rf "$dir/last-run"
+  mkdir -p "$dir/last-run"
+  set +e
+  NODE_PATH="$KIT/node_modules" node "$pw/cli.js" test -c "$KIT/skills/browser-replay/playwright.config.cjs"
+  code=$?
+  set -e
+  if [[ $code == 0 ]]; then result=PASS; else result=FAIL; fi
+  jq -n --arg r "$result" --arg at "$(date -u +%FT%TZ)" '{result: $r, step: null, at: $at}' > "$dir/last-run/result.json"
+  exit "$code"
+}
+
+# Today's run directory. With --new, the next free one (-b, -c, ...) so a re-test
+# never overwrites an earlier run.
+cmd_proof_dir() {
+  local key=${1:?usage: auto-browser proof-dir <key> [--new]}
+  local base d suffix
+  base="$(home_dir)/$key/pr-proof/$(date +%F)"
+  if [[ "${2:-}" != "--new" ]]; then
+    d=$base
+    for suffix in b c d e f g h; do [[ -d "$base-$suffix" ]] && d="$base-$suffix"; done
+    printf '%s\n' "$d"
+    return
+  fi
+  d=$base
+  for suffix in b c d e f g h; do
+    [[ -e "$d" ]] || break
+    d="$base-$suffix"
+  done
+  [[ -e "$d" ]] && die "too many runs today under $base"
+  mkdir -p "$d/shots"
+  printf '%s\n' "$d"
+}
+
+case "${1:-}" in
+  home) home_dir ;;
+  kit) printf '%s\n' "$KIT" ;;
+  lib) printf '%s\n' "$KIT/skills/browser-replay/lib.sh" ;;
+  config) config_json ;;
+  health) cmd_health ;;
+  up) cmd_up ;;
+  login) shift; cmd_login "$@" ;;
+  list) shift; cmd_list "$@" ;;
+  new) shift; cmd_new "$@" ;;
+  run) shift; cmd_run "$@" ;;
+  proof-dir) shift; cmd_proof_dir "$@" ;;
+  -h|--help|help|'') sed -n '2,18p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+  *) die "unknown command: $1 (try auto-browser help)" ;;
+esac

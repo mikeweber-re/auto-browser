@@ -1,0 +1,18 @@
+{
+  "name": "auto-browser",
+  "displayName": "auto-browser",
+  "version": "0.1.0",
+  "description": "Browser testing skills for Claude Code: replayable browser tests (agent-browser or Playwright), step-through manual tests, and PR proof with screenshots per acceptance criterion.",
+  "author": {
+    "name": "auto-browser contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "testing",
+    "browser",
+    "playwright",
+    "agent-browser",
+    "qa",
+    "screenshots"
+  ]
+}

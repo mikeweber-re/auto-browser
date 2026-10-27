@@ -1,0 +1,17 @@
+{
+  "name": "auto-browser",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser testing skills for Claude Code.",
+  "license": "MIT",
+  "scripts": {
+    "setup": "npm run setup:agent-browser && npm run setup:playwright",
+    "setup:agent-browser": "agent-browser install",
+    "setup:playwright": "playwright install chromium",
+    "smoke": "bash examples/smoke/run-smoke.sh"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.55.0",
+    "agent-browser": "^0.36.0"
+  }
+}

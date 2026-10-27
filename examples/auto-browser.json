@@ -1,0 +1,16 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "scripts": {
+    "health": "scripts/auto-browser/health.sh",
+    "up": null,
+    "login": "scripts/auto-browser/login.sh"
+  },
+  "login": {
+    "defaultUser": "test-user@example.com",
+    "roles": {
+      "admin": "test-admin@example.com"
+    }
+  },
+  "viewport": "1440x900",
+  "notes": "Anything a browser-driving agent needs that is not a script: how the stack comes up, manual login steps, seeded test data, feature flags."
+}

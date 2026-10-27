@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "auto-browser",
+  "description": "Browser testing skills for Claude Code.",
+  "owner": {
+    "name": "auto-browser contributors"
+  },
+  "plugins": [
+    {
+      "name": "auto-browser",
+      "description": "Replayable browser tests, step-through manual tests, and PR proof with screenshots.",
+      "source": "./",
+      "category": "testing"
+    }
+  ]
+}
