@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "description": "Browser testing skills for Claude Code.",
-  "license": "MIT",
   "scripts": {
     "setup": "npm run setup:agent-browser && npm run setup:playwright",
     "setup:agent-browser": "agent-browser install",
