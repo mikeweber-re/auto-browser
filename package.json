@@ -7,10 +7,12 @@
     "setup": "npm run setup:agent-browser && npm run setup:playwright",
     "setup:agent-browser": "agent-browser install",
     "setup:playwright": "playwright install chromium",
-    "smoke": "bash examples/smoke/run-smoke.sh"
+    "smoke": "bash examples/smoke/run-smoke.sh",
+    "pack": "git archive --format=zip --prefix=auto-browser/ -o auto-browser.zip HEAD"
   },
   "dependencies": {
     "@playwright/test": "^1.55.0",
     "agent-browser": "^0.36.0"
-  }
+  },
+  "license": "MIT"
 }

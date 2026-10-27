@@ -34,6 +34,16 @@ need() { command -v "$1" >/dev/null 2>&1 || { printf 'auto-browser: %s is requir
 repo_root() { git rev-parse --show-toplevel 2>/dev/null || true; }
 
 home_dir() {
+  local h
+  h=$(home_root)
+  # Machine-written run output stays local to each user, even if the store is committed.
+  if [[ -d "$h" && ! -f "$h/.gitignore" ]]; then
+    printf '# Written by auto-browser. Run output is local to each machine.\n*/replays/*/last-run/\n' > "$h/.gitignore"
+  fi
+  printf '%s\n' "$h"
+}
+
+home_root() {
   if [[ -n "${AUTO_BROWSER_HOME:-}" ]]; then
     printf '%s\n' "$AUTO_BROWSER_HOME"
   elif [[ -n "$(repo_root)" ]]; then
@@ -138,6 +148,7 @@ cmd_new() {
   local kind=agent-browser dir
   [[ "${3:-}" == "--playwright" ]] && kind=playwright
   [[ "$key" =~ ^[A-Za-z0-9._-]+$ && "$flow" =~ ^[A-Za-z0-9._-]+$ ]] || die "key and flow may use letters, digits, . _ - only"
+  mkdir -p "$(home_root)"
   dir="$(home_dir)/$key/replays/$flow"
   [[ -e "$dir" ]] && die "already exists: $dir"
   mkdir -p "$dir"

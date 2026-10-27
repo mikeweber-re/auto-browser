@@ -27,8 +27,15 @@ fi
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-# A throwaway profile per run, so a replay never touches anyone's real browser profile.
-ab() { "$AB_BIN" --session "$SESSION" --profile "$OUT/chrome-profile" ${AB_HEADED:+--headed} "$@"; }
+# A throwaway browser profile per run, kept in the user's local cache and never in
+# the replay store, so it can't be committed. Deleted on PASS; kept on FAIL so the
+# open session can be taken over. Profiles older than a day are swept here.
+PROFILES="${XDG_CACHE_HOME:-$HOME/.cache}/auto-browser/profiles"
+mkdir -p "$PROFILES"
+find "$PROFILES" -mindepth 1 -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
+PROFILE="$PROFILES/$SESSION"
+
+ab() { "$AB_BIN" --session "$SESSION" --profile "$PROFILE" ${AB_HEADED:+--headed} "$@"; }
 
 step() { STEP="$*"; printf '> %s\n' "$STEP"; }
 
@@ -83,6 +90,7 @@ trap on_fail ERR
 pass() {
   write_result PASS
   ab close >/dev/null 2>&1 || true
+  rm -rf "$PROFILE"
   printf 'PASS (%s)\n' "$(basename "$HERE")"
 }
 

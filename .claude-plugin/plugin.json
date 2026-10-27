@@ -13,5 +13,6 @@
     "agent-browser",
     "qa",
     "screenshots"
-  ]
+  ],
+  "license": "MIT"
 }

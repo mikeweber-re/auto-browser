@@ -38,11 +38,13 @@ own when a task fits ("test this flow", "prove this PR works").
    it always matches your installed version. You don't need to install that
    skill separately.
 
-2. **The plugin.** Clone this repo, install its packages, and add it as a
-   local marketplace:
+2. **The plugin.** Get a copy any way you like: `git clone` this repo (best if
+   you want updates or to send PRs), or unzip a shared `auto-browser.zip`, or
+   copy the folder. Then install its packages and add it as a local
+   marketplace:
 
    ```bash
-   git clone <this repo's URL> ~/auto-browser
+   git clone <this repo's URL> ~/auto-browser     # or unzip / copy to ~/auto-browser
    cd ~/auto-browser
    npm install
    npm run setup:playwright         # optional: Playwright's Chromium, about 150 MB
@@ -135,6 +137,15 @@ Add `.auto-browser/` to the repo's `.gitignore` if you don't want replays and
 proofs committed. Commit them if you want the team to share replays. Each git
 worktree gets its own `.auto-browser/`; set `AUTO_BROWSER_HOME` to share one
 store across worktrees.
+
+What stays local to each machine, even when the store is committed:
+
+- **Browser profiles** never go in the store. Each replay run gets a throwaway
+  profile under `${XDG_CACHE_HOME:-~/.cache}/auto-browser/profiles/`. It is
+  deleted when the run passes, kept after a failure so the open browser can
+  be taken over, and swept after a day.
+- **Run output** (`last-run/`) is ignored by a `.gitignore` the helper writes
+  at the store root the first time it uses it.
 
 ## The `auto-browser` helper
 
@@ -277,6 +288,13 @@ Testing works the same way.
 - Nothing is posted anywhere without your explicit yes to that exact post.
 - Headed or headless: Claude asks once per task unless you said.
 - Claude closes the browser sessions it opens.
+
+## Sharing and contributing
+
+- `npm run pack` writes `auto-browser.zip` (committed files only, no
+  `node_modules`) for sharing as a file.
+- Changes go through pull requests on this repo. Keep `npm run smoke` passing
+  and run `bash -n` on any script you touch.
 
 ## Layout
 

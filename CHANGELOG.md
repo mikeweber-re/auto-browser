@@ -14,3 +14,6 @@ First release.
 - pr-proof prints the proof by default; posting to a tracker is optional and
   needs explicit approval per run.
 - Optional chrome-devtools-mcp setup documented, not bundled.
+- Browser profiles live in the user's cache, never in the replay store;
+  `last-run/` output is git-ignored at the store root.
+- MIT license. `npm run pack` builds a shareable zip.
