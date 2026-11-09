@@ -52,11 +52,31 @@ call `${CLAUDE_PLUGIN_ROOT}/bin/auto-browser`.
 
 ## The loop
 
-Before each step, print one line, `Next: <n>. <what>`, and highlight the
-target (`agent-browser --session ... highlight <sel>`) so the user sees it in
-the window. Then stop and wait.
+Before each step, highlight the target
+(`agent-browser --session ... highlight <sel>`) so the user sees it in the
+window. Then stop and ask.
 
-The user's commands (plain chat, loose wording is fine):
+**Every stop is an AskUserQuestion form, never a chat line.** That includes
+the step prompt, a surprise, a spot, a side-effect check, "my turn" and the
+end-of-run offer. An open form shows the session as waiting for input. A
+stop that only ends the turn in chat reads as idle, so the user can't tell
+it's waiting on them. Shape the step form like this:
+
+- Question: `Next: <n>. <what>` (for a spot: `Spot <k>/<total>: <step> (checks: <what changed>)`).
+  Name the page and step so the form makes sense on its own.
+- Options, recommended first, at most 4: `Go` (do this step), then the two
+  that fit best here (`Run to next spot`/`Run to <label>`, `My turn`,
+  `Skip`, `Back`), then `Stop`. Give each a `preview` saying what it will do.
+- Any other command (`n 3`, `use <value>`, `snap`) comes through the form's
+  free-text answer ("Other") or its notes. Read both and act on them.
+- After the step, the result report and the next step's form go in the same
+  turn: report in chat, then ask. Don't end a turn without a form while the
+  session is still open.
+- `My turn`: ask a one-question form ("Tell me when you're done in the
+  window", options `Done, re-read the page` / `Stop`) so the wait still shows
+  as waiting on them.
+
+The user's commands (form options, or free text in the form; loose wording is fine):
 
 | Command                         | What Claude does                                                    |
 | ------------------------------- | ------------------------------------------------------------------- |
@@ -67,7 +87,7 @@ The user's commands (plain chat, loose wording is fine):
 | `back` / `redo`                 | Browser back, or repeat the last step.                              |
 | `use <value>` / `fill X with Y` | Change the data for this or later steps, then propose again.        |
 | `snap` / `shot`                 | Describe what is on the page now, or save a screenshot and show it. |
-| `I'll do it` / `my turn`        | The user acts in the window. Wait for "go on" or a new command.     |
+| `I'll do it` / `my turn`        | The user acts in the window. Ask the "tell me when done" form.      |
 | `stop`                          | End the session (see Ending).                                       |
 
 Rules:
@@ -108,15 +128,16 @@ forms, navigation to the changed page) runs straight through.
    there is setup.
 2. **Show the plan** with a Spot column (`spot 1`, `spot 2`, ... or blank)
    and one line per spot on what changed there and what to check. The user
-   may add, drop or move spots. Start only on their go.
+   may add, drop or move spots. Start only on their go (a form: `Start` /
+   `Change spots` / `Stop`).
 3. **Run setup steps without stopping.** Still report each one in a single
    line, and still re-read the page before each step.
 4. **At each spot, stop before it.** Print `Spot <k>/<total>: <step> (checks:
-   <what changed>)`, highlight the target, and wait. The user says `go`
-   (Claude does it), does it themselves (`my turn`), or gives any loop
-   command. After the step, report and wait again so they can confirm the
-   result (`ok`, or what looked wrong). Log the verdict per spot. Then resume
-   the auto-run.
+   <what changed>)` as the form's question, highlight the target, and ask.
+   The user picks `Go` (Claude does it) or `My turn`, or gives any loop
+   command. After the step, report and ask again so they can confirm the
+   result (form: `Looks right` / `Something's wrong`, their notes say what).
+   Log the verdict per spot. Then resume the auto-run.
 5. **Auto-run still stops** on every surprise from the loop rules (error,
    toast, validation message, off-plan page, long spinner) and before any step
    with real-world side effects. Those stops are not spots; once the user
@@ -136,6 +157,6 @@ On `stop`, or at the end of the plan:
 2. Report: steps done, anything that looked wrong (exact text, step number),
    and any screenshot paths.
 3. Offer, per browser-replay, to save the step log as a replay (or to update
-   the replay it came from with any drift found). Lean toward saving.
+   the replay it came from with any drift found), as a form with saving first.
 4. If you started the app, stop it and give the user the command to start it
    again.

@@ -18,7 +18,10 @@ module.exports = {
     channel: process.env.AUTO_BROWSER_PW_CHANNEL || undefined,
     headless: !process.env.AB_HEADED,
     viewport: { width, height },
-    screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    // Opt-in capture, same flags as agent-browser replays. AB_SHOTS keeps a
+    // trace for every run (a screenshot per action in `npx playwright show-trace`).
+    screenshot: process.env.AB_SHOTS ? 'on' : 'only-on-failure',
+    trace: process.env.AB_SHOTS ? 'on' : 'retain-on-failure',
+    video: process.env.AB_RECORD ? 'on' : 'off',
   },
 };

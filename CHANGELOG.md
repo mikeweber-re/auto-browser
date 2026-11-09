@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- browser-replay: opt-in capture. `AB_SHOTS=1` saves a screenshot after every
+  step (Playwright: screenshots and a trace for every run). `AB_RECORD=1`
+  saves a video of the run, `AB_RECORD=mp4` an mp4 for PR attachments (needs
+  agent-browser 0.41 or later). Both are off by default.
+- browser-replay and browser-semi-auto: every stop that needs the user (a
+  step prompt, a manual step, bug or drift, save or skip) is an
+  AskUserQuestion form, so the session shows as waiting for input instead of
+  idle.
+
 ## 0.1.0
 
 First release.

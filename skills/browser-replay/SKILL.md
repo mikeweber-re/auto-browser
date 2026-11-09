@@ -56,6 +56,15 @@ with the user. Don't guess a port or a login.
   the window can steal focus) or headless (out of sight, no focus steal). Ask
   once per task. Headed means `AB_HEADED=1` on replays and `--headed` on
   hand-driven agent-browser; headless means leaving both off.
+- `--shots` / `--record`: opt-in capture for this run, off by default and in
+  either mode. `AB_SHOTS=1` saves a screenshot after every step to
+  `last-run/steps/NN-<step>.png` (Playwright: a trace with a frame per action).
+  `AB_RECORD=1` saves a video to `last-run/run.webm` (Playwright: its own
+  `.webm` per test, which needs `npx playwright install ffmpeg` once);
+  `AB_RECORD=mp4` writes `run.mp4` instead, for attaching to a PR (needs
+  agent-browser 0.41 or later). `last-run/` is wiped every run,
+  so copy anything worth keeping out (to the pr-proof run directory for
+  proof). Recording starts on `BASE_URL` before the script's first step.
 - `<flow>`: optional kebab-case flow name (`create-listing`,
   `checkout-as-guest`). Otherwise derive it from what's being tested.
 
@@ -267,11 +276,22 @@ Read those, then decide which one this is:
   4. Add a `history` entry: the date, which step, what changed, and "drift".
   5. Report it as a pass with the heal noted, so the user knows the UI changed.
 
-**Can't tell which?** Treat it as a bug and ask. Healing a real regression
-hides it.
+**Can't tell which?** Treat it as a bug and ask (a form: `Bug, report it` /
+`Drift, heal it`, with the failing step and on-screen text in the question).
+Healing a real regression hides it.
 
 ## Rules
 
+- **Anything that needs the user is an AskUserQuestion form, never a chat
+  line.** That covers a go-ahead ("press Go", "ready?"), a step they do in the
+  window (a passcode, a captcha, a manual click), bug or drift, save or skip,
+  and any side-effect or staging check. An open form shows the session as
+  waiting for input; a question left in chat reads as idle, so the user can't
+  tell it's waiting on them. Make the question stand on its own (flow, step,
+  what's on screen), put the recommended option first, and give each option a
+  `preview`. For a step they do themselves, ask `Done, continue` / `Stop` and
+  re-read the page after they answer. Read the free-text and notes answers and
+  act on them.
 - **Replay before recording.** Driving by hand when a passing replay exists
   wastes the whole point.
 - **Always keep the step log**, even if the flow probably won't be saved.

@@ -5,6 +5,8 @@
 #
 #   auto-browser run <this dir>                  # headless
 #   AB_HEADED=1 auto-browser run <this dir>      # watch it
+#   AB_SHOTS=1 auto-browser run <this dir>       # + last-run/steps/NN-<step>.png after each step
+#   AB_RECORD=1 auto-browser run <this dir>      # + last-run/run.webm (AB_RECORD=mp4: run.mp4)
 #   BASE_URL=http://localhost:4000 auto-browser run <this dir>
 
 # shellcheck source=/dev/null
